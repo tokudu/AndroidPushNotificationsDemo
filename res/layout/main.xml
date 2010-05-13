@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:background="@color/background_color"
+    >
+    
+    <ImageView android:id="@+id/logo" 
+          android:src="@drawable/logo"
+          android:layout_centerHorizontal="true" 
+          android:layout_width="wrap_content" 
+          android:layout_height="wrap_content"       
+          android:layout_gravity="center_horizontal"
+          android:layout_marginTop="5dip"    
+     /> 
+     
+    <TextView android:id="@+id/targetlabel_text" 
+	     android:text = "@string/target"   
+	     android:layout_width="wrap_content" 
+	     android:layout_height="wrap_content" 
+         android:layout_gravity="center_horizontal"
+         android:layout_marginTop="5dip"    
+         android:textColor="@color/text_color"
+     />      
+
+    <TextView android:id="@+id/target_text" 
+	     android:layout_width="wrap_content" 
+	     android:layout_height="wrap_content" 
+         android:textAppearance="?android:attr/textAppearanceLarge"
+         android:layout_gravity="center_horizontal"
+         android:layout_marginTop="5dip"    
+         android:textStyle="bold"
+         android:textColor="@color/text_color"
+     />      
+    
+     <Button android:id="@+id/start_button" 
+          android:text="@string/start_service" 
+          android:layout_width="wrap_content" 
+          android:layout_height="wrap_content" 
+          android:layout_gravity="center_horizontal"
+          android:layout_marginTop="5dip"    
+          /> 
+          
+     <Button android:id="@+id/stop_button" 
+          android:text="@string/stop_service" 
+          android:layout_width="wrap_content" 
+          android:layout_height="wrap_content" 
+          android:layout_gravity="center_horizontal"
+          android:layout_marginTop="5dip"    
+          /> 
+          
+    <TextView android:id="@+id/aboutlabel_text" 
+	     android:text = "@string/about"   
+	     android:layout_width="wrap_content" 
+	     android:layout_height="wrap_content" 
+         android:layout_gravity="center_horizontal"
+         android:layout_marginTop="5dip"    
+         android:textColor="@color/text_color"
+     />      
+           
+
+</LinearLayout>

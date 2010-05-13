@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, PushActivity!</string>
+    <string name="app_name">Push Demo</string>
+<string name="target">Your Device Target:</string>
+<string name="stop_service">Stop Push Service</string>
+<string name="start_service">Start Push service</string>
+<string name="about">www.tokudu.com</string>
+</resources>
