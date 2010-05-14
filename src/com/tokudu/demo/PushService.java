@@ -1,16 +1,8 @@
 package com.tokudu.demo;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.util.Date;
-
 import com.ibm.mqtt.IMqttClient;
 import com.ibm.mqtt.MqttClient;
 import com.ibm.mqtt.MqttException;
-import com.ibm.mqtt.MqttNotConnectedException;
 import com.ibm.mqtt.MqttPersistence;
 import com.ibm.mqtt.MqttPersistenceException;
 import com.ibm.mqtt.MqttSimpleCallback;
@@ -25,13 +17,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Message;
-import android.provider.Settings.Secure;
 import android.util.Log;
 
 /* 
@@ -265,8 +253,13 @@ public class PushService extends Service
 			// Send a keep alive, if there is a connection.
 			if (mStarted == true && mConnection != null) {
 				mConnection.sendKeepAlive();
+			} else {
+				reconnectIfNecessary();
 			}
-		} catch (IOException e) {
+		} catch (MqttException e) {
+			mConnection.disconnect();
+			mConnection = null;
+			scheduleReconnect(System.currentTimeMillis());
 			Log.e(TAG, "Failed to send a keepalive", e);
 		}
 	}
@@ -437,49 +430,31 @@ public class PushService extends Service
 		 * Send a request to the message broker to be sent messages published with 
 		 *  the specified topic name. Wildcards are allowed.	
 		 */
-		private void subscribeToTopic(String topicName) {
+		private void subscribeToTopic(String topicName) throws MqttException {
 			
 			if ((mqttClient == null) || (mqttClient.isConnected() == false)) {
 				// quick sanity check - don't try and subscribe if we don't have
 				//  a connection
 				log("Connection error" + "No connection");	
 			} else {									
-				try{
-					String[] topics = { topicName };
-					mqttClient.subscribe(topics, MQTT_QUALITIES_OF_SERVICE);
-				} catch (MqttNotConnectedException e) {
-					Log.e(TAG, "Connection error" + e.getMessage(), e);			
-				} catch (IllegalArgumentException e) {
-					Log.e(TAG, "Connection error" + e.getMessage(), e);			
-				} catch (MqttException e) {
-		        	Log.e(TAG, "MQQTEXCEPTION" + (e.getMessage() == null? e.getMessage():" NULL"), e);
-				}
+				String[] topics = { topicName };
+				mqttClient.subscribe(topics, MQTT_QUALITIES_OF_SERVICE);
 			}
 		}	
 		/*
 		 * Sends a message to the message broker, requesting that it be published
 		 *  to the specified topic.
 		 */
-		private void publishToTopic(String topicName, String message) {		
+		private void publishToTopic(String topicName, String message) throws MqttException {		
 			if ((mqttClient == null) || (mqttClient.isConnected() == false)) {
 				// quick sanity check - don't try and publish if we don't have
 				//  a connection
 					Log.e(TAG, "no connection publish");		
 			} else {
-				try {
-					mqttClient.publish(topicName, 
-									   message.getBytes(),
-									   MQTT_QUALITY_OF_SERVICE, 
-									   MQTT_RETAINED_PUBLISH);
-				} catch (MqttPersistenceException e) {
-					Log.e(TAG, "Connection error" + e.getMessage(), e);			
-				} catch (MqttNotConnectedException e) {
-					Log.e(TAG, "Connection error" + e.getMessage(), e);			
-				} catch (IllegalArgumentException e){
-					Log.e(TAG, "Connection error" + e.getMessage(), e);			
-				} catch (MqttException e) {
-					log("Connection error" + e.getMessage());			
-				}
+				mqttClient.publish(topicName, 
+								   message.getBytes(),
+								   MQTT_QUALITY_OF_SERVICE, 
+								   MQTT_RETAINED_PUBLISH);
 			}
 		}		
 		
@@ -500,17 +475,13 @@ public class PushService extends Service
 		 * Called when we receive a message from the message broker. 
 		 */
 		public void publishArrived(String topicName, byte[] payload, int qos, boolean retained) {
-			try {
-				// Show a notification
-				String s = new String(payload);
-				showNotification(s);	
-				log("Got message: " + s);
-			} catch (Exception exc) {
-				Log.e("recieving error:",exc.getMessage());
-			}
+			// Show a notification
+			String s = new String(payload);
+			showNotification(s);	
+			log("Got message: " + s);
 		}   
 		
-		public void sendKeepAlive() throws IOException{
+		public void sendKeepAlive() throws MqttException {
 			// publish to a keep-alive topic
 			publishToTopic(MQTT_CLIENT_ID + "/keepalive", mPrefs.getString(PREF_DEVICE_ID, ""));
 		}		
