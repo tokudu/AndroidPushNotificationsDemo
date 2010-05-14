@@ -249,8 +249,14 @@ public class PushService extends Service
 		if (deviceID == null) {
 			log("Device ID not found.");
 		} else {
-			mConnection = new MQTTConnection(MQTT_HOST, deviceID);
-			setStarted(true);				
+			try {
+				mConnection = new MQTTConnection(MQTT_HOST, deviceID);
+			} catch (MqttException e) {
+				// Schedule a reconnect, if we failed to connect
+	        	Log.e(TAG, "MQQTEXCEPTION" + (e.getMessage() == null? e.getMessage():" NULL"), e);
+	        	scheduleReconnect(System.currentTimeMillis());
+			}
+			setStarted(true);
 		}
 	}
 
@@ -396,10 +402,9 @@ public class PushService extends Service
 		private long startTime;
 		
 		// Creates a new connection given the broker address and initial topic
-		public MQTTConnection(String brokerHostName, String initTopic) {
+		public MQTTConnection(String brokerHostName, String initTopic) throws MqttException {
 			// Create connection spec
 	    	String mqttConnSpec = "tcp://" + brokerHostName + "@" + MQTT_BROKER_PORT_NUM;
-	        try {
 	        	// Create the client and connect
 	        	mqttClient = MqttClient.createMqttClient(mqttConnSpec, MQTT_PERSISTENCE);
 	        	mqttClient.connect(MQTT_CLIENT_ID, MQTT_CLEAN_START, MQTT_KEEP_ALIVE);
@@ -417,9 +422,6 @@ public class PushService extends Service
 				startTime = System.currentTimeMillis();
 				// Star the keep-alives
 				startKeepAlives();				        
-	        } catch (MqttException e) {
-	        	Log.e(TAG, "MQQTEXCEPTION" + (e.getMessage() == null? e.getMessage():" NULL"), e);
-	        }        
 		}
 		
 		// Disconnect
