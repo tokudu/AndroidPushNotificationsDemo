@@ -254,7 +254,9 @@ public class PushService extends Service
 			if (mStarted == true && mConnection != null) {
 				mConnection.sendKeepAlive();
 			} else {
-				reconnectIfNecessary();
+				if (isNetworkAvailable()) {
+					reconnectIfNecessary();
+				}
 			}
 		} catch (MqttException e) {
 			mConnection.disconnect();
