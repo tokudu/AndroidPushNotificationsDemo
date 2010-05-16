@@ -52,43 +52,46 @@ public class PushService extends Service
 	// MQTT client ID, which is given the broker. In this example, I also use this for the topic header. 
 	// You can use this to run push notifications for multiple apps with one MQTT broker. 
 	public static String 		   MQTT_CLIENT_ID = "com.tokudu.demo";
-
+		
 	// These are the actions for the service (name are descriptive enough)
 	private static final String    ACTION_START = MQTT_CLIENT_ID + ".START";
 	private static final String    ACTION_STOP = MQTT_CLIENT_ID + ".STOP";
 	private static final String    ACTION_KEEPALIVE = MQTT_CLIENT_ID + ".KEEP_ALIVE";
 	private static final String    ACTION_RECONNECT = MQTT_CLIENT_ID + ".RECONNECT";
+
+	// Notification title
+	public static String 		   NOTIF_TITLE = "Tokudu"; 
+	// Notification id
+	private static final int 	   NOTIF_CONNECTED = 0;	
 	
 	// Connectivity manager to determining, when the phone loses connection
-	private ConnectivityManager mConnMan;
+	private ConnectivityManager    mConnMan;
 	// Notification manager to displaying arrived push notifications 
-	private NotificationManager mNotifMan;
+	private NotificationManager    mNotifMan;
 
 	// Whether or not the service has been started.	
 	private boolean mStarted;
 
 	// This the application level keep-alive interval, that is used by the AlarmManager
 	// to keep the connection active, even when the device goes to sleep.
-	private static final long KEEP_ALIVE_INTERVAL = 1000 * 60 * 28;
+	private static final long      KEEP_ALIVE_INTERVAL = 1000 * 60 * 28;
 
 	// Retry intervals, when the connection is lost.
-	private static final long INITIAL_RETRY_INTERVAL = 1000 * 10;
-	private static final long MAXIMUM_RETRY_INTERVAL = 1000 * 60 * 30;
+	private static final long      INITIAL_RETRY_INTERVAL = 1000 * 10;
+	private static final long	   MAXIMUM_RETRY_INTERVAL = 1000 * 60 * 30;
 
 	// Preferences instance 
-	private SharedPreferences mPrefs;
+	private SharedPreferences 	   mPrefs;
 	// We store in the preferences, whether or not the service has been started
-	public static final String PREF_STARTED = "isStarted";
+	public static final String     PREF_STARTED = "isStarted";
 	// We also store the deviceID (target)
-	public static final String PREF_DEVICE_ID = "deviceID";
+	public static final String     PREF_DEVICE_ID = "deviceID";
 	// We store the last retry interval
-	public static final String PREF_RETRY = "retryInterval";
+	public static final String     PREF_RETRY = "retryInterval";
 
-	// Notification id
-	private static final int NOTIF_CONNECTED = 0;	
 		
 	// This is the instance of an MQTT connection.
-	private MQTTConnection mConnection;
+	private MQTTConnection         mConnection;
 
 	// Static method to start the service
 	public static void actionStart(Context ctx) {
@@ -377,7 +380,7 @@ public class PushService extends Service
 		  new Intent(this, PushActivity.class), 0);
 
 		// Change the name of the notification here
-		n.setLatestEventInfo(this, "Tokudu", text, pi);
+		n.setLatestEventInfo(this, NOTIF_TITLE, text, pi);
 
 		mNotifMan.notify(NOTIF_CONNECTED, n);
 	}
