@@ -1,5 +1,7 @@
 package com.tokudu.demo;
 
+import java.io.IOException;
+
 import com.ibm.mqtt.IMqttClient;
 import com.ibm.mqtt.MqttClient;
 import com.ibm.mqtt.MqttException;
@@ -30,68 +32,72 @@ import android.util.Log;
 public class PushService extends Service
 {
 	// this is the log tag
-	public static final String 	   TAG = "DemoPushService";
+	public static final String		TAG = "DemoPushService";
 
 	// the IP address, where your MQTT broker is running.
-	private static final String    MQTT_HOST = "209.124.50.185";
+	private static final String		MQTT_HOST = "209.124.50.185";
 	// the port at which the broker is running. 
-	private static int             MQTT_BROKER_PORT_NUM      = 1883;
+	private static int				MQTT_BROKER_PORT_NUM      = 1883;
 	// Let's not use the MQTT persistence.
-	private static MqttPersistence MQTT_PERSISTENCE          = null;
+	private static MqttPersistence	MQTT_PERSISTENCE          = null;
 	// We don't need to remember any state between the connections, so we use a clean start. 
-	private static boolean         MQTT_CLEAN_START          = true;
-	// Let's set the internal keep alive for MQTT to 15 mins. I haven't tested this value much. It could probably be inreased.
-	private static short           MQTT_KEEP_ALIVE           = 60 * 15;
+	private static boolean			MQTT_CLEAN_START          = true;
+	// Let's set the internal keep alive for MQTT to 15 mins. I haven't tested this value much. It could probably be increased.
+	private static short			MQTT_KEEP_ALIVE           = 60 * 15;
 	// Set quality of services to 0 (at most once delivery), since we don't want push notifications 
 	// arrive more than once. However, this means that some messages might get lost (delivery is not guaranteed)
-	private static int[]           MQTT_QUALITIES_OF_SERVICE = { 0 } ;
-	private static int             MQTT_QUALITY_OF_SERVICE   = 0;
+	private static int[]			MQTT_QUALITIES_OF_SERVICE = { 0 } ;
+	private static int				MQTT_QUALITY_OF_SERVICE   = 0;
 	// The broker should not retain any messages.
-	private static boolean         MQTT_RETAINED_PUBLISH     = false;
+	private static boolean			MQTT_RETAINED_PUBLISH     = false;
 		
 	// MQTT client ID, which is given the broker. In this example, I also use this for the topic header. 
 	// You can use this to run push notifications for multiple apps with one MQTT broker. 
-	public static String 		   MQTT_CLIENT_ID = "com.tokudu.demo";
-		
-	// These are the actions for the service (name are descriptive enough)
-	private static final String    ACTION_START = MQTT_CLIENT_ID + ".START";
-	private static final String    ACTION_STOP = MQTT_CLIENT_ID + ".STOP";
-	private static final String    ACTION_KEEPALIVE = MQTT_CLIENT_ID + ".KEEP_ALIVE";
-	private static final String    ACTION_RECONNECT = MQTT_CLIENT_ID + ".RECONNECT";
+	public static String			MQTT_CLIENT_ID = "com.tokudu.demo";
 
-	// Notification title
-	public static String 		   NOTIF_TITLE = "Tokudu"; 
-	// Notification id
-	private static final int 	   NOTIF_CONNECTED = 0;	
+	// These are the actions for the service (name are descriptive enough)
+	private static final String		ACTION_START = MQTT_CLIENT_ID + ".START";
+	private static final String		ACTION_STOP = MQTT_CLIENT_ID + ".STOP";
+	private static final String		ACTION_KEEPALIVE = MQTT_CLIENT_ID + ".KEEP_ALIVE";
+	private static final String		ACTION_RECONNECT = MQTT_CLIENT_ID + ".RECONNECT";
+	
+	// Connection log for the push service. Good for debugging.
+	private ConnectionLog 			mLog;
 	
 	// Connectivity manager to determining, when the phone loses connection
-	private ConnectivityManager    mConnMan;
+	private ConnectivityManager		mConnMan;
 	// Notification manager to displaying arrived push notifications 
-	private NotificationManager    mNotifMan;
+	private NotificationManager		mNotifMan;
 
 	// Whether or not the service has been started.	
-	private boolean mStarted;
+	private boolean 				mStarted;
 
 	// This the application level keep-alive interval, that is used by the AlarmManager
 	// to keep the connection active, even when the device goes to sleep.
-	private static final long      KEEP_ALIVE_INTERVAL = 1000 * 60 * 28;
+	private static final long		KEEP_ALIVE_INTERVAL = 1000 * 60 * 28;
 
 	// Retry intervals, when the connection is lost.
-	private static final long      INITIAL_RETRY_INTERVAL = 1000 * 10;
-	private static final long	   MAXIMUM_RETRY_INTERVAL = 1000 * 60 * 30;
+	private static final long		INITIAL_RETRY_INTERVAL = 1000 * 10;
+	private static final long		MAXIMUM_RETRY_INTERVAL = 1000 * 60 * 30;
 
 	// Preferences instance 
-	private SharedPreferences 	   mPrefs;
+	private SharedPreferences 		mPrefs;
 	// We store in the preferences, whether or not the service has been started
-	public static final String     PREF_STARTED = "isStarted";
+	public static final String		PREF_STARTED = "isStarted";
 	// We also store the deviceID (target)
-	public static final String     PREF_DEVICE_ID = "deviceID";
+	public static final String		PREF_DEVICE_ID = "deviceID";
 	// We store the last retry interval
-	public static final String     PREF_RETRY = "retryInterval";
+	public static final String		PREF_RETRY = "retryInterval";
 
+	// Notification title
+	public static String			NOTIF_TITLE = "Tokudu"; 	
+	// Notification id
+	private static final int		NOTIF_CONNECTED = 0;	
 		
 	// This is the instance of an MQTT connection.
-	private MQTTConnection         mConnection;
+	private MQTTConnection			mConnection;
+	private long					mStartTime;
+	
 
 	// Static method to start the service
 	public static void actionStart(Context ctx) {
@@ -119,6 +125,14 @@ public class PushService extends Service
 		super.onCreate();
 		
 		log("Creating service");
+		mStartTime = System.currentTimeMillis();
+
+		try {
+			mLog = new ConnectionLog();
+			Log.i(TAG, "Opened log at " + mLog.getPath());
+		} catch (IOException e) {
+			Log.e(TAG, "Failed to open log", e);
+		}
 
 		// Get instances of preferences, connectivity manager and notification manager
 		mPrefs = getSharedPreferences(TAG, MODE_PRIVATE);
@@ -152,6 +166,11 @@ public class PushService extends Service
 		if (mStarted == true) {
 			stop();
 		}
+		
+		try {
+			if (mLog != null)
+				mLog.close();
+		} catch (IOException e) {}		
 	}
 	
 	@Override
@@ -168,7 +187,9 @@ public class PushService extends Service
 		} else if (intent.getAction().equals(ACTION_KEEPALIVE) == true) {
 			keepAlive();
 		} else if (intent.getAction().equals(ACTION_RECONNECT) == true) {
-			reconnectIfNecessary();
+			if (isNetworkAvailable()) {
+				reconnectIfNecessary();
+			}
 		}
 	}
 	
@@ -179,7 +200,22 @@ public class PushService extends Service
 
 	// log helper function
 	private void log(String message) {
-		Log.i(TAG, message);
+		log(message, null);
+	}
+	private void log(String message, Throwable e) {
+		if (e != null) {
+			Log.e(TAG, message, e);
+			
+		} else {
+			Log.i(TAG, message);			
+		}
+		
+		if (mLog != null)
+		{
+			try {
+				mLog.println(message);
+			} catch (IOException ex) {}
+		}		
 	}
 	
 	// Reads whether or not the service has been started from the preferences
@@ -244,8 +280,10 @@ public class PushService extends Service
 				mConnection = new MQTTConnection(MQTT_HOST, deviceID);
 			} catch (MqttException e) {
 				// Schedule a reconnect, if we failed to connect
-	        	Log.e(TAG, "MQQTEXCEPTION" + (e.getMessage() == null? e.getMessage():" NULL"), e);
-	        	scheduleReconnect(System.currentTimeMillis());
+				log("MqttException: " + (e.getMessage() != null ? e.getMessage() : "NULL"));
+	        	if (isNetworkAvailable()) {
+	        		scheduleReconnect(mStartTime);
+	        	}
 			}
 			setStarted(true);
 		}
@@ -256,16 +294,13 @@ public class PushService extends Service
 			// Send a keep alive, if there is a connection.
 			if (mStarted == true && mConnection != null) {
 				mConnection.sendKeepAlive();
-			} else {
-				if (isNetworkAvailable()) {
-					reconnectIfNecessary();
-				}
 			}
 		} catch (MqttException e) {
+			log("MqttException: " + (e.getMessage() != null? e.getMessage(): "NULL"), e);
+			
 			mConnection.disconnect();
 			mConnection = null;
-			scheduleReconnect(System.currentTimeMillis());
-			Log.e(TAG, "Failed to send a keepalive", e);
+			cancelReconnect();
 		}
 	}
 
@@ -353,11 +388,11 @@ public class PushService extends Service
 			log("Connectivity changed: connected=" + hasConnectivity);
 
 			if (hasConnectivity) {
-				// If there connectivity, we reconnect if necessary
 				reconnectIfNecessary();
 			} else if (mConnection != null) {
 				// if there no connectivity, make sure MQTT connection is destroyed
 				mConnection.disconnect();
+				cancelReconnect();
 				mConnection = null;
 			}
 		}
@@ -397,7 +432,6 @@ public class PushService extends Service
 	// This inner class is a wrapper on top of MQTT client.
 	private class MQTTConnection implements MqttSimpleCallback {
 		IMqttClient mqttClient = null;
-		private long startTime;
 		
 		// Creates a new connection given the broker address and initial topic
 		public MQTTConnection(String brokerHostName, String initTopic) throws MqttException {
@@ -417,7 +451,7 @@ public class PushService extends Service
 				log("Connection established to " + brokerHostName + " on topic " + initTopic);
 		
 				// Save start time
-				startTime = System.currentTimeMillis();
+				mStartTime = System.currentTimeMillis();
 				// Star the keep-alives
 				startKeepAlives();				        
 		}
@@ -428,7 +462,7 @@ public class PushService extends Service
 				stopKeepAlives();
 				mqttClient.disconnect();
 			} catch (MqttPersistenceException e) {
-	        	Log.e(TAG, "MQQTEXCEPTION" + (e.getMessage() == null? e.getMessage():" NULL"), e);
+				log("MqttException" + (e.getMessage() != null? e.getMessage():" NULL"), e);
 			}
 		}
 		/*
@@ -453,8 +487,8 @@ public class PushService extends Service
 		private void publishToTopic(String topicName, String message) throws MqttException {		
 			if ((mqttClient == null) || (mqttClient.isConnected() == false)) {
 				// quick sanity check - don't try and publish if we don't have
-				//  a connection
-					Log.e(TAG, "no connection publish");		
+				//  a connection				
+				log("No connection to public to");		
 			} else {
 				mqttClient.publish(topicName, 
 								   message.getBytes(),
@@ -472,7 +506,7 @@ public class PushService extends Service
 			// null itself
 			mConnection = null;
 			if (isNetworkAvailable() == true) {
-				scheduleReconnect(startTime);	
+				scheduleReconnect(mStartTime);	
 			}
 		}		
 		
@@ -487,6 +521,7 @@ public class PushService extends Service
 		}   
 		
 		public void sendKeepAlive() throws MqttException {
+			log("Sending keep alive");
 			// publish to a keep-alive topic
 			publishToTopic(MQTT_CLIENT_ID + "/keepalive", mPrefs.getString(PREF_DEVICE_ID, ""));
 		}		
