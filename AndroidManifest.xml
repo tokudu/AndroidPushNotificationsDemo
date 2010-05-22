@@ -17,6 +17,7 @@
 		<service android:name=".PushService" android:label="Tokudu Push Notifications Service"></service>
     </application>
 	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.VIBRATE" />	
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-sdk android:minSdkVersion="3"/>
 
