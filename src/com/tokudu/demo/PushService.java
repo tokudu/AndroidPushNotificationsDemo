@@ -53,7 +53,7 @@ public class PushService extends Service
 		
 	// MQTT client ID, which is given the broker. In this example, I also use this for the topic header. 
 	// You can use this to run push notifications for multiple apps with one MQTT broker. 
-	public static String			MQTT_CLIENT_ID = "com.tokudu.demo";
+	public static String			MQTT_CLIENT_ID = "tokudu";
 
 	// These are the actions for the service (name are descriptive enough)
 	private static final String		ACTION_START = MQTT_CLIENT_ID + ".START";
