@@ -439,7 +439,8 @@ public class PushService extends Service
 	    	String mqttConnSpec = "tcp://" + brokerHostName + "@" + MQTT_BROKER_PORT_NUM;
 	        	// Create the client and connect
 	        	mqttClient = MqttClient.createMqttClient(mqttConnSpec, MQTT_PERSISTENCE);
-	        	mqttClient.connect(MQTT_CLIENT_ID, MQTT_CLEAN_START, MQTT_KEEP_ALIVE);
+	        	String clientID = MQTT_CLIENT_ID + "/" + mPrefs.getString(PREF_DEVICE_ID, "");
+	        	mqttClient.connect(clientID, MQTT_CLEAN_START, MQTT_KEEP_ALIVE);
 
 		        // register this client app has being able to receive messages
 				mqttClient.registerSimpleHandler(this);
