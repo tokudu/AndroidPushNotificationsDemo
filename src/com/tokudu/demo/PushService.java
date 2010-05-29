@@ -507,7 +507,7 @@ public class PushService extends Service
 			// null itself
 			mConnection = null;
 			if (isNetworkAvailable() == true) {
-				scheduleReconnect(mStartTime);	
+				reconnectIfNecessary();	
 			}
 		}		
 		
